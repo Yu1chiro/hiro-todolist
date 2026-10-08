@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f8f4e4">
+<title>Hiro Garden Todo</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600;700&display=swap" rel="stylesheet">
+<script>
+tailwind.config={theme:{extend:{colors:{cream:'#f8f4e4',sage:'#d3e6c8',moss:'#6f9a68',sky:'#d2e9ef',blush:'#f7d6cb',butter:'#f8e8ae',bark:'#4b4a3a'},fontFamily:{sans:['Quicksand','sans-serif']}}}}
+</script>
+<style>
+body{background:radial-gradient(circle at 10% 0%,#e4f1d8 0,transparent 40%),radial-gradient(circle at 100% 30%,#d2e9ef 0,transparent 35%),radial-gradient(circle at 0% 100%,#f8e8ae 0,transparent 35%),#f8f4e4;background-attachment:fixed;color:#4b4a3a;-webkit-tap-highlight-color:transparent}
+.fade{animation:fade .35s ease}@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.card{background:rgba(255,255,255,.72);border:1px solid rgba(255,255,255,.9);box-shadow:0 6px 20px -8px rgba(111,154,104,.35);border-radius:1.5rem}
+.desc ul{list-style:disc;padding-left:1.25rem}.desc ol{list-style:decimal;padding-left:1.25rem}
+.desc h1,.desc h2{font-weight:700;font-size:1.05rem}.desc p{margin:.15rem 0}
+.ql-toolbar.ql-snow{border:0;border-bottom:1px solid #e5e0c8;background:#fbf9ee;border-radius:1rem 1rem 0 0}
+.ql-container.ql-snow{border:0;font-family:inherit;font-size:.9rem}.ql-editor{min-height:110px;max-height:200px}
+.ql-container{border-radius:0 0 1rem 1rem}
+.inp{width:100%;background:#fff;border:1px solid #e5e0c8;border-radius:1rem;padding:.65rem .9rem;outline:none}
+.inp:focus{border-color:#6f9a68;box-shadow:0 0 0 3px #d3e6c8}
+.top{padding-top:env(safe-area-inset-top)}
+</style>
+</head>
+<body class="font-sans min-h-screen">
+<div id="toasts" class="fixed top-4 right-4 z-[100] flex flex-col gap-2 max-w-[85vw]"></div>
+
+<!-- LOGIN -->
+<section id="login" class="hidden fixed inset-0 z-50 flex items-center justify-center p-6 bg-cream">
+  <form id="login-form" class="card p-8 w-full max-w-sm text-center fade">
+    <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-sage flex items-center justify-center text-moss text-2xl"><i class="fa-solid fa-seedling"></i></div>
+    <h1 class="text-xl font-bold">Hiro Garden</h1>
+    <p class="text-sm opacity-70 mb-5">Masukkan PIN untuk membuka taman tugasmu</p>
+    <input id="pin" type="password" inputmode="numeric" autocomplete="off" placeholder="••••" class="inp text-center text-2xl tracking-[.5em]">
+    <button class="w-full mt-4 bg-moss text-white font-bold rounded-2xl py-3 active:scale-95 transition">Masuk <i class="fa-solid fa-leaf ml-1"></i></button>
+  </form>
+</section>
+
+<!-- TOP BAR -->
+<header class="top fixed top-0 inset-x-0 z-30 bg-cream/85 backdrop-blur border-b border-white">
+  <div class="max-w-2xl mx-auto h-14 px-4 flex items-center gap-3">
+    <button id="burger" class="w-10 h-10 rounded-full bg-sage text-moss active:scale-90 transition" aria-label="Menu"><i class="fa-solid fa-bars"></i></button>
+    <h1 id="title" class="font-bold text-lg">Tugas</h1>
+  </div>
+</header>
+
+<!-- DRAWER KIRI -->
+<div id="overlay" class="fixed inset-0 z-40 bg-bark/40 opacity-0 pointer-events-none transition-opacity"></div>
+<aside id="drawer" class="top fixed z-50 inset-y-0 left-0 w-72 bg-cream shadow-2xl -translate-x-full transition-transform duration-300 p-5 flex flex-col">
+  <div class="flex items-center gap-3 mb-8 mt-2">
+    <div class="w-12 h-12 rounded-full bg-sage text-moss flex items-center justify-center text-xl"><i class="fa-solid fa-seedling"></i></div>
+    <div><p class="font-bold leading-tight">Hiro Garden</p><p class="text-xs opacity-60">Tumbuh sedikit demi sedikit</p></div>
+  </div>
+  <nav class="flex flex-col gap-2">
+    <a href="/" data-nav="/" class="flex items-center gap-3 px-4 py-3 rounded-2xl font-semibold"><i class="fa-solid fa-list-check w-5 text-moss"></i>Tugas</a>
+    <a href="/statistic" data-nav="/statistic" class="flex items-center gap-3 px-4 py-3 rounded-2xl font-semibold"><i class="fa-solid fa-chart-pie w-5 text-moss"></i>Statistik</a>
+    <a href="/calendar" data-nav="/calendar" class="flex items-center gap-3 px-4 py-3 rounded-2xl font-semibold"><i class="fa-solid fa-calendar-days w-5 text-moss"></i>Kalender</a>
+  </nav>
+  <button id="logout" class="mt-auto flex items-center gap-3 px-4 py-3 rounded-2xl font-semibold bg-blush/70"><i class="fa-solid fa-right-from-bracket w-5"></i>Kunci</button>
+</aside>
+
+<main id="view" class="max-w-2xl mx-auto px-4 pt-[4.5rem] pb-28"></main>
+
+<button id="fab" class="fixed bottom-6 right-5 z-30 w-14 h-14 rounded-full bg-moss text-white text-xl shadow-lg active:scale-90 transition" style="margin-bottom:env(safe-area-inset-bottom)" aria-label="Tambah"><i class="fa-solid fa-plus"></i></button>
+
+<!-- MODAL FORM -->
+<div id="modal" class="hidden fixed inset-0 z-50 bg-bark/40 flex items-end sm:items-center justify-center">
+  <form id="form" class="bg-cream w-full max-w-lg max-h-[92vh] overflow-y-auto rounded-t-[2rem] sm:rounded-[2rem] p-5 fade">
+    <div class="flex items-center justify-between mb-4">
+      <h2 id="m-title" class="font-bold text-lg">Tugas Baru</h2>
+      <button type="button" data-close class="w-9 h-9 rounded-full bg-white"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="space-y-3">
+      <div><label class="text-sm font-semibold">Task Name</label><input id="f-name" maxlength="150" required class="inp mt-1" placeholder="Siram tanaman..."></div>
+      <div><label class="text-sm font-semibold">Date & Time</label><input id="f-date" type="datetime-local" required class="inp mt-1"></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="text-sm font-semibold">Category</label><select id="f-cat" class="inp mt-1"><option>Work</option><option>Study</option><option>Productive</option><option>Hobby</option></select></div>
+        <div><label class="text-sm font-semibold">Type</label><select id="f-type" class="inp mt-1"><option>Low</option><option>Medium</option><option>Urgent</option></select></div>
+      </div>
+      <div><label class="text-sm font-semibold">Description <span class="opacity-50 font-normal">(opsional)</span></label>
+        <div class="mt-1 bg-white rounded-2xl border border-[#e5e0c8]"><div id="editor"></div></div></div>
+    </div>
+    <button id="f-save" class="w-full mt-5 bg-moss text-white font-bold rounded-2xl py-3 active:scale-95 transition">Simpan</button>
+  </form>
+</div>
+
+<!-- MODAL HAPUS -->
+<div id="confirm" class="hidden fixed inset-0 z-[60] bg-bark/40 flex items-center justify-center p-6">
+  <div class="bg-cream rounded-[2rem] p-6 w-full max-w-sm text-center fade">
+    <div class="w-14 h-14 mx-auto mb-3 rounded-full bg-blush flex items-center justify-center text-xl"><i class="fa-solid fa-trash-can"></i></div>
+    <h3 class="font-bold text-lg">Hapus tugas ini?</h3>
+    <p id="c-name" class="text-sm opacity-70 mt-1 mb-5 break-words"></p>
+    <div class="flex gap-3">
+      <button data-close class="flex-1 py-3 rounded-2xl bg-white font-bold">Batal</button>
+      <button id="c-ok" class="flex-1 py-3 rounded-2xl bg-red-300 font-bold">Hapus</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js"></script>
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const clean=h=>{const d=new DOMParser().parseFromString(h||'','text/html');d.querySelectorAll('script,iframe,object,embed,style,link').forEach(e=>e.remove());d.body.querySelectorAll('*').forEach(e=>[...e.attributes].forEach(a=>{if(/^on/i.test(a.name)||/javascript:/i.test(a.value))e.removeAttribute(a.name)}));return d.body.innerHTML};
+const dkey=d=>new Date(d).toLocaleDateString('en-CA');
+const fmt=d=>new Date(d).toLocaleString('id-ID',{weekday:'long',day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'});
+const CAT={Work:['bg-sky','fa-briefcase'],Study:['bg-butter','fa-book-open'],Productive:['bg-sage','fa-bolt'],Hobby:['bg-blush','fa-palette']};
+const TYP={Low:'bg-sky',Medium:'bg-butter',Urgent:'bg-blush'};
+let tasks=[],filter='all',period='day',calM=new Date(),editId=null,delId=null;
+
+/* Toast */
+function toast(msg,type='success'){
+  const c={success:['bg-sage','fa-circle-check'],error:['bg-blush','fa-circle-xmark'],info:['bg-sky','fa-circle-info']}[type];
+  const t=document.createElement('div');
+  t.className=`${c[0]} shadow-lg rounded-2xl px-4 py-3 flex items-center gap-2 text-sm font-semibold border border-white translate-x-full opacity-0 transition-all duration-300`;
+  t.innerHTML=`<i class="fa-solid ${c[1]}"></i><span>${esc(msg)}</span>`;
+  $('#toasts').append(t);
+  requestAnimationFrame(()=>t.classList.remove('translate-x-full','opacity-0'));
+  setTimeout(()=>{t.classList.add('translate-x-full','opacity-0');setTimeout(()=>t.remove(),300)},3000);
+}
+
+/* API */
+async function api(url,opt={}){
+  const r=await fetch(url,{credentials:'same-origin',headers:{'Content-Type':'application/json'},method:opt.method||'GET',body:opt.body?JSON.stringify(opt.body):undefined});
+  const j=await r.json().catch(()=>({}));
+  if(r.status===401&&!url.includes('/auth/login')){showLogin();throw new Error('Sesi berakhir')}
+  if(!r.ok)throw new Error(j.error||'Terjadi kesalahan');
+  return j;
+}
+
+/* Auth */
+const showLogin=()=>{$('#login').classList.remove('hidden');$('#pin').value='';setTimeout(()=>$('#pin').focus(),100)};
+$('#login-form').onsubmit=async e=>{
+  e.preventDefault();
+  try{await api('/api/auth/login',{method:'POST',body:{pin:$('#pin').value}});$('#login').classList.add('hidden');toast('Selamat datang kembali 🌱');await boot()}
+  catch(err){toast(err.message,'error');$('#pin').value=''}
+};
+$('#logout').onclick=async()=>{await api('/api/auth/logout',{method:'POST',body:{}});closeMenu();tasks=[];showLogin()};
+
+/* Drawer */
+const openMenu=()=>{$('#drawer').classList.remove('-translate-x-full');$('#overlay').classList.remove('opacity-0','pointer-events-none')};
+const closeMenu=()=>{$('#drawer').classList.add('-translate-x-full');$('#overlay').classList.add('opacity-0','pointer-events-none')};
+$('#burger').onclick=openMenu;$('#overlay').onclick=closeMenu;
+
+/* Router SPA */
+const titles={'/':'Tugas','/statistic':'Statistik','/calendar':'Kalender'};
+const views={'/':renderTasks,'/statistic':renderStats,'/calendar':renderCal};
+function go(p,push=true){
+  if(!views[p])p='/';
+  if(push&&location.pathname!==p)history.pushState({},'',p);
+  closeMenu();
+  document.querySelectorAll('[data-nav]').forEach(a=>a.classList.toggle('bg-sage',a.dataset.nav===p));
+  $('#title').textContent=titles[p];
+  $('#fab').classList.toggle('hidden',p!=='/');
+  const v=$('#view');v.classList.remove('fade');void v.offsetWidth;v.classList.add('fade');
+  views[p]();
+}
+document.addEventListener('click',e=>{const a=e.target.closest('[data-nav]');if(a){e.preventDefault();go(a.dataset.nav)}});
+window.onpopstate=()=>go(location.pathname,false);
+
+/* Helpers statistik */
+const pct=(a,b)=>b?Math.round(a/b*100):0;
+const doneCount=l=>l.filter(t=>t.is_done).length;
+
+/* ====== VIEW: TUGAS ====== */
+function renderTasks(){
+  const today=dkey(new Date());
+  const f={all:()=>true,today:t=>dkey(t.due_at)===today,pending:t=>!t.is_done,done:t=>t.is_done}[filter];
+  const list=tasks.filter(f);
+  const chips=[['all','Semua'],['today','Hari ini'],['pending','Belum'],['done','Selesai']]
+    .map(([k,l])=>`<button data-filter="${k}" class="shrink-0 px-4 py-2 rounded-full text-sm font-bold transition ${filter===k?'bg-moss text-white':'bg-white/80'}">${l}</button>`).join('');
+  const items=list.map(t=>{
+    const late=!t.is_done&&new Date(t.due_at)<new Date();
+    return `<article class="card p-4 ${t.is_done?'opacity-60':''}">
+      <div class="flex gap-3">
+        <button data-act="toggle" data-id="${t.id}" class="mt-0.5 w-7 h-7 shrink-0 rounded-full border-2 ${t.is_done?'bg-moss border-moss text-white':'border-moss/50 bg-white'} flex items-center justify-center text-xs active:scale-75 transition">${t.is_done?'<i class="fa-solid fa-check"></i>':''}</button>
+        <div class="min-w-0 flex-1">
+          <h3 class="font-bold break-words ${t.is_done?'line-through':''}">${esc(t.name)}</h3>
+          <p class="text-xs mt-0.5 ${late?'text-red-500 font-bold':'opacity-70'}"><i class="fa-regular fa-clock mr-1"></i>${fmt(t.due_at)}${late?' · terlambat':''}</p>
+          <div class="flex gap-2 mt-2 flex-wrap">
+            <span class="${CAT[t.category][0]} text-xs font-bold px-3 py-1 rounded-full"><i class="fa-solid ${CAT[t.category][1]} mr-1"></i>${t.category}</span>
+            <span class="${TYP[t.type]} text-xs font-bold px-3 py-1 rounded-full">${t.type}</span>
+          </div>
+          ${t.description?`<div class="desc hidden text-sm mt-3 p-3 bg-white/70 rounded-2xl" id="d${t.id}">${clean(t.description)}</div>
+          <button data-act="exp" data-id="${t.id}" class="text-xs font-bold text-moss mt-2">Lihat deskripsi <i class="fa-solid fa-chevron-down"></i></button>`:''}
+        </div>
+        <div class="flex flex-col gap-2">
+          <button data-act="edit" data-id="${t.id}" class="w-8 h-8 rounded-full bg-butter text-sm"><i class="fa-solid fa-pen"></i></button>
+          <button data-act="del" data-id="${t.id}" class="w-8 h-8 rounded-full bg-blush text-sm"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      </div></article>`}).join('');
+  $('#view').innerHTML=`<div class="flex gap-2 overflow-x-auto pb-3 -mx-1 px-1">${chips}</div>
+    <div class="space-y-3">${items||`<div class="card p-10 text-center"><i class="fa-solid fa-seedling text-4xl text-moss mb-3"></i><p class="font-bold">Tamanmu masih kosong</p><p class="text-sm opacity-70">Tekan + untuk menanam tugas pertama</p></div>`}</div>`;
+}
+$('#view').addEventListener('click',async e=>{
+  const fb=e.target.closest('[data-filter]');if(fb){filter=fb.dataset.filter;return renderTasks()}
+  const b=e.target.closest('[data-act]');if(!b)return;
+  const id=+b.dataset.id,t=tasks.find(x=>x.id===id);
+  if(b.dataset.act==='exp'){const d=$('#d'+id);d.classList.toggle('hidden');b.innerHTML=d.classList.contains('hidden')?'Lihat deskripsi <i class="fa-solid fa-chevron-down"></i>':'Tutup <i class="fa-solid fa-chevron-up"></i>'}
+  if(b.dataset.act==='edit')openForm(t);
+  if(b.dataset.act==='del'){delId=id;$('#c-name').textContent=t.name;$('#confirm').classList.remove('hidden')}
+  if(b.dataset.act==='toggle'){
+    try{const u=await api(`/api/tasks/${id}/toggle`,{method:'PATCH',body:{}});tasks=tasks.map(x=>x.id===id?u:x);renderTasks();toast(u.is_done?'Tugas selesai, hebat! 🌼':'Tugas dibuka kembali','info')}
+    catch(err){toast(err.message,'error')}
+  }
+});
+
+/* Form + Quill */
+const quill=new Quill('#editor',{theme:'snow',placeholder:'Catatan tambahan...',modules:{toolbar:[[{header:[1,2,false]}],['bold','italic','underline','strike'],[{list:'ordered'},{list:'bullet'}],['clean']]}});
+const localInput=d=>{const x=new Date(d);x.setMinutes(x.getMinutes()-x.getTimezoneOffset());return x.toISOString().slice(0,16)};
+function openForm(t=null){
+  editId=t?t.id:null;
+  $('#m-title').textContent=t?'Edit Tugas':'Tugas Baru';
+  $('#f-name').value=t?t.name:'';
+  $('#f-date').value=localInput(t?t.due_at:new Date());
+  $('#f-cat').value=t?t.category:'Work';
+  $('#f-type').value=t?t.type:'Low';
+  quill.root.innerHTML=t?clean(t.description):'';
+  $('#modal').classList.remove('hidden');
+}
+$('#fab').onclick=()=>openForm();
+document.addEventListener('click',e=>{if(e.target.closest('[data-close]')||e.target.id==='modal'||e.target.id==='confirm'){$('#modal').classList.add('hidden');$('#confirm').classList.add('hidden')}});
+$('#form').onsubmit=async e=>{
+  e.preventDefault();
+  const body={name:$('#f-name').value.trim(),due_at:new Date($('#f-date').value).toISOString(),category:$('#f-cat').value,type:$('#f-type').value,description:quill.getText().trim()?quill.root.innerHTML:''};
+  const btn=$('#f-save');btn.disabled=true;
+  try{
+    const u=editId?await api('/api/tasks/'+editId,{method:'PUT',body}):await api('/api/tasks',{method:'POST',body});
+    tasks=editId?tasks.map(x=>x.id===editId?u:x):[...tasks,u];
+    tasks.sort((a,b)=>new Date(a.due_at)-new Date(b.due_at));
+    $('#modal').classList.add('hidden');toast(editId?'Tugas diperbarui':'Tugas baru ditanam 🌱');go(location.pathname,false);
+  }catch(err){toast(err.message,'error')}
+  btn.disabled=false;
+};
+$('#c-ok').onclick=async()=>{
+  try{await api('/api/tasks/'+delId,{method:'DELETE'});tasks=tasks.filter(x=>x.id!==delId);$('#confirm').classList.add('hidden');toast('Tugas dihapus');go(location.pathname,false)}
+  catch(err){toast(err.message,'error')}
+};
+
+/* ====== VIEW: STATISTIK ====== */
+function range(){
+  const n=new Date(),s=new Date(n.getFullYear(),n.getMonth(),n.getDate()),e=new Date(s);
+  if(period==='day')e.setDate(s.getDate()+1);
+  else if(period==='week'){const w=(s.getDay()+6)%7;s.setDate(s.getDate()-w);e.setTime(s.getTime());e.setDate(s.getDate()+7)}
+  else{s.setDate(1);e.setTime(s.getTime());e.setMonth(s.getMonth()+1)}
+  return[s,e];
+}
+function bars(obj,keys,colorFn){
+  return keys.map(k=>{const [d,t]=obj[k]||[0,0];return `<div class="mb-3"><div class="flex justify-between text-sm font-semibold"><span>${k}</span><span>${d}/${t} · ${pct(d,t)}%</span></div>
+  <div class="h-3 bg-white rounded-full mt-1 overflow-hidden"><div class="h-full rounded-full ${colorFn(k)}" style="width:${pct(d,t)}%;transition:width .6s"></div></div></div>`}).join('');
+}
+function renderStats(){
+  const [s,e]=range();
+  const l=tasks.filter(t=>{const d=new Date(t.due_at);return d>=s&&d<e});
+  const done=doneCount(l),p=pct(done,l.length),over=l.filter(t=>!t.is_done&&new Date(t.due_at)<new Date()).length;
+  const agg=(key)=>l.reduce((o,t)=>{o[t[key]]=o[t[key]]||[0,0];o[t[key]][1]++;if(t.is_done)o[t[key]][0]++;return o},{});
+  let trend='';
+  if(period!=='day'){
+    const days=[];for(let d=new Date(s);d<e;d.setDate(d.getDate()+1))days.push(new Date(d));
+    trend=`<div class="card p-5 mt-4"><h3 class="font-bold mb-3">Tren harian</h3><div class="flex items-end gap-1 h-32">${days.map(d=>{
+      const dl=l.filter(t=>dkey(t.due_at)===dkey(d)),pp=pct(doneCount(dl),dl.length);
+      return `<div class="flex-1 flex flex-col justify-end items-center h-full" title="${dkey(d)}: ${pp}%"><div class="w-full rounded-t-lg ${dl.length?'bg-moss/70':'bg-white'}" style="height:${dl.length?Math.max(pp,6):6}%"></div>${days.length<=7?`<span class="text-[10px] mt-1">${d.toLocaleDateString('id-ID',{weekday:'short'})}</span>`:''}</div>`}).join('')}</div></div>`;
+  }
+  const C=2*Math.PI*52;
+  $('#view').innerHTML=`<div class="flex bg-white/70 rounded-full p-1 mb-4">${[['day','Hari ini'],['week','Minggu ini'],['month','Bulan ini']].map(([k,t])=>`<button data-p="${k}" class="flex-1 py-2 rounded-full text-sm font-bold transition ${period===k?'bg-moss text-white':''}">${t}</button>`).join('')}</div>
+  <div class="card p-5 flex items-center gap-5">
+    <svg viewBox="0 0 120 120" class="w-32 h-32 shrink-0 -rotate-90"><circle cx="60" cy="60" r="52" fill="none" stroke="#fff" stroke-width="12"/><circle cx="60" cy="60" r="52" fill="none" stroke="#6f9a68" stroke-width="12" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C-C*p/100}" style="transition:stroke-dashoffset .8s"/></svg>
+    <div><p class="text-4xl font-bold">${p}%</p><p class="text-sm opacity-70">${done} dari ${l.length} tugas selesai</p></div>
+  </div>
+  <div class="grid grid-cols-3 gap-3 mt-4 text-center">
+    <div class="card p-3 bg-sage"><p class="text-2xl font-bold">${l.length}</p><p class="text-xs">Total</p></div>
+    <div class="card p-3"><p class="text-2xl font-bold">${l.length-done}</p><p class="text-xs">Belum</p></div>
+    <div class="card p-3"><p class="text-2xl font-bold text-red-400">${over}</p><p class="text-xs">Terlambat</p></div>
+  </div>${trend}
+  <div class="card p-5 mt-4"><h3 class="font-bold mb-3">Per kategori</h3>${bars(agg('category'),Object.keys(CAT),k=>CAT[k][0])}</div>
+  <div class="card p-5 mt-4"><h3 class="font-bold mb-3">Per tipe</h3>${bars(agg('type'),Object.keys(TYP),k=>TYP[k])}</div>`;
+}
+$('#view').addEventListener('click',e=>{const b=e.target.closest('[data-p]');if(b){period=b.dataset.p;renderStats()}});
+
+/* ====== VIEW: KALENDER (persentase saja) ====== */
+function renderCal(){
+  const y=calM.getFullYear(),m=calM.getMonth(),first=(new Date(y,m,1).getDay()+6)%7,days=new Date(y,m+1,0).getDate(),today=dkey(new Date());
+  const by={};tasks.forEach(t=>{const k=dkey(t.due_at);(by[k]=by[k]||[0,0])[1]++;if(t.is_done)by[k][0]++});
+  let cells='<div></div>'.repeat(first);
+  for(let d=1;d<=days;d++){
+    const k=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`,v=by[k],p=v?pct(v[0],v[1]):null;
+    const bg=p===null?'bg-white/50':p===100?'bg-sage':p>0?'bg-butter':'bg-blush';
+    cells+=`<div class="${bg} aspect-square rounded-2xl flex flex-col items-center justify-center ${k===today?'ring-2 ring-moss':''}"><span class="text-xs font-semibold">${d}</span><span class="text-[11px] font-bold">${p===null?'':p+'%'}</span></div>`;
+  }
+  $('#view').innerHTML=`<div class="card p-4">
+    <div class="flex items-center justify-between mb-4">
+      <button data-cal="-1" class="w-10 h-10 rounded-full bg-sage"><i class="fa-solid fa-chevron-left"></i></button>
+      <h2 class="font-bold">${calM.toLocaleDateString('id-ID',{month:'long',year:'numeric'})}</h2>
+      <button data-cal="1" class="w-10 h-10 rounded-full bg-sage"><i class="fa-solid fa-chevron-right"></i></button>
+    </div>
+    <div class="grid grid-cols-7 gap-1.5 text-center text-xs font-bold opacity-70 mb-2">${['Sen','Sel','Rab','Kam','Jum','Sab','Min'].map(x=>`<div>${x}</div>`).join('')}</div>
+    <div class="grid grid-cols-7 gap-1.5">${cells}</div>
+    <div class="flex gap-3 justify-center mt-4 text-xs"><span><i class="fa-solid fa-circle text-sage"></i> 100%</span><span><i class="fa-solid fa-circle text-butter"></i> sebagian</span><span><i class="fa-solid fa-circle text-blush"></i> 0%</span></div></div>`;
+}
+$('#view').addEventListener('click',e=>{const b=e.target.closest('[data-cal]');if(b){calM=new Date(calM.getFullYear(),calM.getMonth()+ +b.dataset.cal,1);renderCal()}});
+
+/* Boot */
+async function boot(){
+  try{tasks=await api('/api/tasks');go(location.pathname,false)}catch(e){}
+}
+(async()=>{
+  try{await api('/api/auth/me');await boot()}catch{showLogin()}
+})();
+</script>
+</body>
+</html>
