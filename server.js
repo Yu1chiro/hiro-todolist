@@ -4,7 +4,10 @@ const path = require('path');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const cookieParser = require('cookie-parser');
-const { Pool } = require('pg');
+const { Pool, types } = require('pg');
+
+// Kolom DATE (OID 1082) dikembalikan apa adanya sebagai string 'YYYY-MM-DD' (tanpa konversi zona waktu)
+types.setTypeParser(1082, (v) => v);
 
 const { APP_PIN, JWT_SECRET, DATABASE_URL } = process.env;
 if (!APP_PIN || !JWT_SECRET || !DATABASE_URL) {
@@ -71,16 +74,17 @@ app.post('/api/auth/logout', (req, res) => res.clearCookie('token').json({ ok: t
 // ---------- Validasi ----------
 function validate(b) {
   const name = String(b.name || '').trim();
-  const d = new Date(b.due_at);
+  const due = String(b.due_at || '').slice(0, 10);
   if (!name || name.length > 150) return { error: 'Nama task wajib diisi (maks 150 karakter)' };
-  if (isNaN(d)) return { error: 'Tanggal & waktu tidak valid' };
+  const dt = /^\d{4}-\d{2}-\d{2}$/.test(due) ? new Date(due + 'T00:00:00Z') : null;
+  if (!dt || isNaN(dt) || dt.toISOString().slice(0, 10) !== due) return { error: 'Tanggal tidak valid' };
   if (!CATS.includes(b.category)) return { error: 'Kategori tidak valid' };
   if (!TYPES.includes(b.type)) return { error: 'Tipe tidak valid' };
   const description = String(b.description || '')
     .slice(0, 20000)
     .replace(/<(script|iframe|object|embed|style)[\s\S]*?<\/\1>/gi, '')
     .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*')/gi, '');
-  return { v: [name, d.toISOString(), b.category, b.type, description] };
+  return { v: [name, due, b.category, b.type, description] };
 }
 const wrap = (fn) => (req, res) => fn(req, res).catch((e) => { console.error(e); res.status(500).json({ error: 'Server error' }); });
 const idOk = (req, res, next) => (Number.isInteger(+req.params.id) ? next() : res.status(400).json({ error: 'ID tidak valid' }));

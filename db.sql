@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS tasks (
   id           SERIAL PRIMARY KEY,
   name         VARCHAR(150) NOT NULL,
-  due_at       TIMESTAMPTZ  NOT NULL,
+  due_at       DATE         NOT NULL,
   category     VARCHAR(20)  NOT NULL CHECK (category IN ('Work','Study','Productive','Hobby')),
   type         VARCHAR(10)  NOT NULL CHECK (type IN ('Low','Medium','Urgent')),
   description  TEXT         NOT NULL DEFAULT '',

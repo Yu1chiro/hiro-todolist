@@ -76,7 +76,7 @@ body{background:radial-gradient(circle at 10% 0%,#e4f1d8 0,transparent 40%),radi
     </div>
     <div class="space-y-3">
       <div><label class="text-sm font-semibold">Task Name</label><input id="f-name" maxlength="150" required class="inp mt-1" placeholder="Siram tanaman..."></div>
-      <div><label class="text-sm font-semibold">Date & Time</label><input id="f-date" type="datetime-local" required class="inp mt-1"></div>
+      <div><label class="text-sm font-semibold">Date</label><input id="f-date" type="date" required class="inp mt-1"></div>
       <div class="grid grid-cols-2 gap-3">
         <div><label class="text-sm font-semibold">Category</label><select id="f-cat" class="inp mt-1"><option>Work</option><option>Study</option><option>Productive</option><option>Hobby</option></select></div>
         <div><label class="text-sm font-semibold">Type</label><select id="f-type" class="inp mt-1"><option>Low</option><option>Medium</option><option>Urgent</option></select></div>
@@ -106,8 +106,11 @@ body{background:radial-gradient(circle at 10% 0%,#e4f1d8 0,transparent 40%),radi
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const clean=h=>{const d=new DOMParser().parseFromString(h||'','text/html');d.querySelectorAll('script,iframe,object,embed,style,link').forEach(e=>e.remove());d.body.querySelectorAll('*').forEach(e=>[...e.attributes].forEach(a=>{if(/^on/i.test(a.name)||/javascript:/i.test(a.value))e.removeAttribute(a.name)}));return d.body.innerHTML};
-const dkey=d=>new Date(d).toLocaleDateString('en-CA');
-const fmt=d=>new Date(d).toLocaleString('id-ID',{weekday:'long',day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'});
+// Tanggal tanpa jam: due_at berformat 'YYYY-MM-DD'. Di-parse sebagai tanggal lokal agar tidak bergeser zona waktu.
+const isYMD=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}/.test(s);
+const pd=d=>{if(isYMD(d)){const[y,m,x]=d.slice(0,10).split('-').map(Number);return new Date(y,m-1,x)}const n=new Date(d);return new Date(n.getFullYear(),n.getMonth(),n.getDate())};
+const dkey=d=>isYMD(d)?d.slice(0,10):new Date(d).toLocaleDateString('en-CA');
+const fmt=d=>pd(d).toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 const CAT={Work:['bg-sky','fa-briefcase'],Study:['bg-butter','fa-book-open'],Productive:['bg-sage','fa-bolt'],Hobby:['bg-blush','fa-palette']};
 const TYP={Low:'bg-sky',Medium:'bg-butter',Urgent:'bg-blush'};
 let tasks=[],filter='all',period='day',calM=new Date(),editId=null,delId=null;
@@ -174,13 +177,13 @@ function renderTasks(){
   const chips=[['all','Semua'],['today','Hari ini'],['pending','Belum'],['done','Selesai']]
     .map(([k,l])=>`<button data-filter="${k}" class="shrink-0 px-4 py-2 rounded-full text-sm font-bold transition ${filter===k?'bg-moss text-white':'bg-white/80'}">${l}</button>`).join('');
   const items=list.map(t=>{
-    const late=!t.is_done&&new Date(t.due_at)<new Date();
+    const late=!t.is_done&&pd(t.due_at)<pd(new Date());
     return `<article class="card p-4 ${t.is_done?'opacity-60':''}">
       <div class="flex gap-3">
         <button data-act="toggle" data-id="${t.id}" class="mt-0.5 w-7 h-7 shrink-0 rounded-full border-2 ${t.is_done?'bg-moss border-moss text-white':'border-moss/50 bg-white'} flex items-center justify-center text-xs active:scale-75 transition">${t.is_done?'<i class="fa-solid fa-check"></i>':''}</button>
         <div class="min-w-0 flex-1">
           <h3 class="font-bold break-words ${t.is_done?'line-through':''}">${esc(t.name)}</h3>
-          <p class="text-xs mt-0.5 ${late?'text-red-500 font-bold':'opacity-70'}"><i class="fa-regular fa-clock mr-1"></i>${fmt(t.due_at)}${late?' · terlambat':''}</p>
+          <p class="text-xs mt-0.5 ${late?'text-red-500 font-bold':'opacity-70'}"><i class="fa-regular fa-calendar mr-1"></i>${fmt(t.due_at)}${late?' · terlambat':''}</p>
           <div class="flex gap-2 mt-2 flex-wrap">
             <span class="${CAT[t.category][0]} text-xs font-bold px-3 py-1 rounded-full"><i class="fa-solid ${CAT[t.category][1]} mr-1"></i>${t.category}</span>
             <span class="${TYP[t.type]} text-xs font-bold px-3 py-1 rounded-full">${t.type}</span>
@@ -211,7 +214,7 @@ $('#view').addEventListener('click',async e=>{
 
 /* Form + Quill */
 const quill=new Quill('#editor',{theme:'snow',placeholder:'Catatan tambahan...',modules:{toolbar:[[{header:[1,2,false]}],['bold','italic','underline','strike'],[{list:'ordered'},{list:'bullet'}],['clean']]}});
-const localInput=d=>{const x=new Date(d);x.setMinutes(x.getMinutes()-x.getTimezoneOffset());return x.toISOString().slice(0,16)};
+const localInput=d=>dkey(d);
 function openForm(t=null){
   editId=t?t.id:null;
   $('#m-title').textContent=t?'Edit Tugas':'Tugas Baru';
@@ -226,12 +229,12 @@ $('#fab').onclick=()=>openForm();
 document.addEventListener('click',e=>{if(e.target.closest('[data-close]')||e.target.id==='modal'||e.target.id==='confirm'){$('#modal').classList.add('hidden');$('#confirm').classList.add('hidden')}});
 $('#form').onsubmit=async e=>{
   e.preventDefault();
-  const body={name:$('#f-name').value.trim(),due_at:new Date($('#f-date').value).toISOString(),category:$('#f-cat').value,type:$('#f-type').value,description:quill.getText().trim()?quill.root.innerHTML:''};
+  const body={name:$('#f-name').value.trim(),due_at:$('#f-date').value,category:$('#f-cat').value,type:$('#f-type').value,description:quill.getText().trim()?quill.root.innerHTML:''};
   const btn=$('#f-save');btn.disabled=true;
   try{
     const u=editId?await api('/api/tasks/'+editId,{method:'PUT',body}):await api('/api/tasks',{method:'POST',body});
     tasks=editId?tasks.map(x=>x.id===editId?u:x):[...tasks,u];
-    tasks.sort((a,b)=>new Date(a.due_at)-new Date(b.due_at));
+    tasks.sort((a,b)=>dkey(a.due_at).localeCompare(dkey(b.due_at)));
     $('#modal').classList.add('hidden');toast(editId?'Tugas diperbarui':'Tugas baru ditanam 🌱');go(location.pathname,false);
   }catch(err){toast(err.message,'error')}
   btn.disabled=false;
@@ -255,8 +258,8 @@ function bars(obj,keys,colorFn){
 }
 function renderStats(){
   const [s,e]=range();
-  const l=tasks.filter(t=>{const d=new Date(t.due_at);return d>=s&&d<e});
-  const done=doneCount(l),p=pct(done,l.length),over=l.filter(t=>!t.is_done&&new Date(t.due_at)<new Date()).length;
+  const l=tasks.filter(t=>{const d=pd(t.due_at);return d>=s&&d<e});
+  const done=doneCount(l),p=pct(done,l.length),over=l.filter(t=>!t.is_done&&pd(t.due_at)<pd(new Date())).length;
   const agg=(key)=>l.reduce((o,t)=>{o[t[key]]=o[t[key]]||[0,0];o[t[key]][1]++;if(t.is_done)o[t[key]][0]++;return o},{});
   let trend='';
   if(period!=='day'){
